@@ -1,0 +1,20 @@
+@font-face {
+        font-family: zpix;
+        src: url(./font/zpix.ttf);
+}
+* {
+        font-family: zpix, sans-serif;
+}
+body {
+        // background-color: white;
+}
+h1,h2 {
+        // background-color: aliceblue;
+        border-left: solid green;
+}
+div {
+        // background-color: #e8bf79;
+}
+a {
+        text-decoration: none;
+}
