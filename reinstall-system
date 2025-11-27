@@ -1,0 +1,78 @@
+sudo dnf install neovim
+
+mkdir ~/.config/nvim
+touch ~/.config/nvim/init.vim
+
+set number
+
+
+
+install mihomo
+
+sudo dnf install mihomo
+sudo rpm -i <mihomo>.rpm
+
+cp Country.mmdb ~/.config/mihomo
+curl -o config.yaml '<profile>'
+
+set mihomo as a daemon
+
+sudo mkdir /etc/mihomo
+sudo cp mihomo /usr/local/bin
+sudo cp config.yaml /etc/mihomo/
+sudo cp Country.mmdb /etc/mihomo/
+
+sudo nvim /etc/systemd/system/mihomo.service
+
+[Unit]
+Description=mihomo
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/local/bin/mihomo -d /etc/mihomo
+
+[Install]
+WantedBy=multi-user.target
+
+boot when start
+
+sudo systemctl enable mihomo
+sudo systemctl start mihomo
+
+export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=socks5://127.0.0.1:7890
+
+set firefox internet settings as https://127.0.0.1:7890
+
+keyd
+
+git clone https://github.com/rvaiya/keyd.git
+
+git clone https://github.com/rvaiya/keyd
+cd keyd
+make && sudo make install
+sudo systemctl enable --now keyd
+
+sudo systemctl enable keyd --now
+
+sudo nvim /etc/keyd/default.conf
+
+[ids]
+
+*
+
+[main]
+
+capslock = overload(control, esc)
+esc = capslock
+
+[control]
+
+h=left
+k=up
+j=down
+l=right
+
+
+sudo keyd reload
