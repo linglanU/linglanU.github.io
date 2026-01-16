@@ -1,57 +1,163 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-        <meta charset="utf-8" />
-        <link rel="shortcut icon" href="https://pbs.twimg.com/profile_images/1699431825704108032/1wGGQXVN_400x400.png" />
-        <title>linglan Space</title>
-        <link rel="stylesheet" href="./index.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="https://pbs.twimg.com/profile_images/1699431825704108032/1wGGQXVN_400x400.png" />
+    <title>LINGLAN SPACE</title>
+    <style>
+        /* 页面基础设置 */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* 防止组件计算间隙导致微小滚动 */
+            background-color: #fff;
+        }
+
+        /* 覆盖在背景上的内容层 */
+        .content-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            pointer-events: none; /* 关键：让鼠标交互穿透到下方的方块 */
+            font-family: sans-serif;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
-        <div>
-        <a href="https://twitter.com/3linesUdon">
-                <img src="https://pbs.twimg.com/profile_images/1991829513056186369/7nakuU2f_400x400.jpg" width=80 height=80 />
-                linglan
-        </a>
-        </div>
-        <h1>linglan Space</h1>
-        <h2>Blogs</h2>
-        <div>
-        </div>
-        <h2>Notes</h2>
-        <div>
-        </div>
-        <h2>Virtual Youtubers</h2>
-        <div>
-                <div class="vtb" id="arisu">
-                <a href="https://twitter.com/AliceMononobe">
-                        <img src="https://pbs.twimg.com/profile_images/1140763523221319680/hwigf250_400x400.jpg" width=80 height=80 />
-                        物述有栖(もののべありす)
-                </a>
-                </div>
-                <div class="vtb" id="mico">
-                <a href="https://twitter.com/mico_sekishiro">
-                        <img src="https://pbs.twimg.com/profile_images/1906923124932886529/WkxCkHsG_400x400.jpg" width=80 height=80 />
-                        堰代ミコ(せきしろみこ)
-                </a>
-                </div>
-                <div class="vtb" id="mochi">
-                <a href="https://twitter.com/mochi8hiyoko">
-                        <img src="https://pbs.twimg.com/profile_images/1347784891556003851/sWikYWwH_400x400.jpg" width=80 height=80 />
-                        もちひよこ
-                </a>
-                </div>
-        </div>
-        <h2>Games</h2>
-        <div>
-                <div class="game" id="rabiribi">
-                <a href="https://twitter.com/RabiRibiGame">
-                        <img src="https://pbs.twimg.com/profile_images/632445088958803968/f8-XfRcg_400x400.png" width=80 height=80 />
-                        Rabi-Ribi
-                </a>
-                </div>
-        </div>
-        <h2>Others</h2>
-        <div>
-        </div>
+
+    <dynamic-grid-bg size="50"></dynamic-grid-bg>
+        
+    <div class="content-overlay">
+        <h1 style="font-weight: 300; letter-spacing: 4px;">LINGLAN SPACE</h1>
+        <p style="opacity: 0.6;">HELLO WORLD</p>
+        <p style="opacity: 0.4;">BY GOOGLE GEMINI</p>
+    </div>
+
+    <script>
+        /**
+         * 自定义 Web Component: <dynamic-grid-bg>
+         */
+        class DynamicGridBg extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.resizeTimer = null;
+            }
+
+            // 监听 size 属性，改变时自动重绘
+            static get observedAttributes() { return ['size']; }
+            attributeChangedCallback() { if (this.shadowRoot.getElementById('container')) this.initGrid(); }
+
+            connectedCallback() {
+                this.render();
+                this.initGrid();
+                window.addEventListener('resize', this.handleResize.bind(this));
+            }
+
+            disconnectedCallback() {
+                window.removeEventListener('resize', this.handleResize);
+            }
+
+            handleResize() {
+                clearTimeout(this.resizeTimer);
+                this.resizeTimer = setTimeout(() => this.initGrid(), 200);
+            }
+
+            // 浅色、低饱和度算法
+            getMutedLightColor() {
+                const h = Math.floor(Math.random() * 360);
+                return `hsl(${h}, 30%, 88%)`;
+            }
+
+            // 独立的呼吸变色递归
+            startBreathing(el) {
+                const nextTime = 3000 + Math.random() * 5000;
+                setTimeout(() => {
+                    if (el.isConnected) {
+                        el.style.backgroundColor = this.getMutedLightColor();
+                        this.startBreathing(el);
+                    }
+                }, nextTime);
+            }
+
+            initGrid() {
+                const container = this.shadowRoot.getElementById('container');
+                container.innerHTML = '';
+
+                // 参数计算
+                const baseSize = parseInt(this.getAttribute('size')) || 80;
+                const gapRatio = 0.05; // 间距为宽度的 1/20
+
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+
+                // 计算行列数以填满屏幕
+                const cols = Math.ceil(vw / baseSize);
+                const rows = Math.ceil(vh / baseSize);
+                
+                // 基于列数反推精确边长和间距
+                const actualWidth = vw / cols;
+                const gap = actualWidth * gapRatio;
+
+                container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                container.style.gap = `${gap}px`;
+                container.style.padding = `${gap / 2}px`;
+
+                const total = cols * rows;
+                for (let i = 0; i < total; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'square';
+                    div.style.backgroundColor = this.getMutedLightColor();
+                    
+                    // 鼠标滑过反馈
+                    div.onmouseover = () => {
+                        div.style.backgroundColor = this.getMutedLightColor();
+                    };
+
+                    container.appendChild(div);
+                    this.startBreathing(div);
+                }
+            }
+
+            render() {
+                this.shadowRoot.innerHTML = `
+                <style>
+                    :host {
+                        display: block;
+                        width: 100vw;
+                        height: 100vh;
+                        position: fixed;
+                        top: 0; left: 0;
+                        z-index: 0;
+                    }
+                    #container {
+                        display: grid;
+                        width: 100%;
+                        height: 100%;
+                        background-color: #fff;
+                        box-sizing: border-box;
+                    }
+                    .square {
+                        width: 100%;
+                        height: 100%;
+                        transition: background-color 3s ease-in-out;
+                    }
+                </style>
+                <div id="container"></div>
+                `;
+            }
+        }
+
+        // 注册组件
+        customElements.define('dynamic-grid-bg', DynamicGridBg);
+    </script>
 </body>
 </html>
