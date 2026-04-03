@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>待办清单</title>
+        <script>
+
+        </script>
+        <style>
+            * {
+                margin:0;
+                padding:0;
+                box-sizing:border-box;
+            }
+            body {
+                background-color: rgb(255, 236, 236);
+                text-align:center;
+            }
+            div {
+                border:solid 2px rgb(8, 153, 153);
+            }
+
+            .list {
+                    display:grid;
+                    height:100vh;
+                    width:100vw;
+                    gap:10px;
+                    grid-template-columns:125px 1fr;
+                    grid-template-rows:auto 1fr auto;
+                    grid-template-areas:"header header"
+                                        "sidebar main"
+                                        "footer footer";
+            }
+            .header { grid-area:header; } 
+            .sidebar { grid-area:sidebar; } 
+            .main { grid-area:main; } 
+            .footer { grid-area:footer; } 
+
+            .header {
+                display:flex;
+                padding:3px;
+                flex-direction:row;
+                overflow-x:auto;
+                gap:5px;
+            }
+            .icon {
+                width:30px;
+                height:30px;
+                flex-shrink:0;
+                display:flex;
+            }
+            .title {
+                width:200px;
+                height:30px;
+                flex-shrink:0;
+                display:flex;
+            }
+            .link {
+                border:none;
+                width:30px;
+                height:30px;
+                flex-shrink:0;
+                display:flex;
+            }
+
+            .sidebar {
+                display:flex;
+                padding:10px;
+                flex-direction:column;
+                overflow-y:auto;
+                gap:5px;
+                scrollbar-width:none;
+            }
+            .option {
+                height:30px;
+                flex-shrink:0;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+            }
+
+            .main {
+                display:flex;
+                flex-direction:column;
+                overflow-y:auto;
+                scrollbar-width:none;
+                padding:2px;
+            }
+            .toolbar {
+                height:70px;
+                flex-shrink:0;
+            }
+            .todolist {
+                flex-shrink:0;
+            }
+
+            .toolbar {
+                display:flex;
+                flex-direction:row;
+                overflow-x:auto;
+                scrollbar-width:none;
+                border:none;
+                gap:15px;
+                padding:20px;
+                padding-bottom:0px;
+            }
+            #todo-input {
+                width:700px;
+                height:30px;
+                flex-shrink:0;
+                flex:1;
+            }
+            #add-todo {
+                width:30px;
+                height:30px;
+                flex-shrink:0;
+            }
+
+            .todolist {
+                display:none;
+            }
+            .todolist.active {
+                border:none;
+                display:flex;
+                padding:20px;
+                padding-top:0px;
+                flex-direction:column;
+                overflow-y:auto;
+                gap:15px;
+                scrollbar-width: none;
+            }
+            .todo {
+                height:60px;
+                flex-shrink:0;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+            }
+
+            .footer {
+                display:flex;
+                padding:3px;
+                flex-direction:row;
+                overflow-x:auto;
+                gap:5px;
+            }
+            .date {
+                width:auto;
+                padding:0 10px;
+                flex-shrink:0;
+                display:flex;
+                align-items:center;
+            }
+            .sign {
+                width:auto;
+                padding:0 10px;
+                flex-shrink:0;
+                display:flex;
+                justify-content:end;
+                align-items:center;
+            }
+
+            .todo {
+                display:flex;
+                padding:15px;
+                flex-direction:row;
+                overflow-x:auto;
+                gap:20px;
+                scrollbar-width:none;
+            }
+            .todo-status {
+                height:30px;
+                width:30px;
+                flex-shrink:0;
+                display:flex;
+
+                cursor:pointer;
+                transition:all 0.3s;
+                color:transparent;
+                justify-content:center;
+                align-items:center;
+            }
+            .todo.checked .todo-status {
+                background-color:rgb(8,153,153);
+                color:white;
+            }
+            .todo-content {
+                height:30px;
+                flex-shrink:0;
+                display:flex;
+                flex:1;
+                padding:3px;
+            }
+            .todo.checked .todo-content {
+                text-decoration:line-through;
+                color:#999;
+            }
+            .todo-status::after {
+                content:'✓';
+            }
+            .delete-todo {
+                width:30px;
+                height:30px;
+                flex-shrink:0;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+            }
+        </style>
+
+    </head>
+    <body>
+        <div class="list">
+            <div class="header">
+                <div class="icon"></div>
+                <div class="title">待办清单</div>
+                <div class="link">
+                    <a href="https://x.com/3linesUdon" target="_blank">
+                        <img src="https://pbs.twimg.com/profile_images/1991829513056186369/7nakuU2f_400x400.jpg" alt="linglanudon" height="30px" width="30px" />
+                    </a>
+                </div>
+                <div class="link">
+                    <a href="https://linglan.icu" target="_self">
+                        <img src="https://linglan.icu/icon.jpg" alt="linglanudon" height="30px" width="30px" />
+                    </a>
+                </div>
+            </div>
+            <div class="sidebar">
+                <div class="option" data-target="default">默认</div>
+                <div class="option" data-target="morning">上午</div>
+                <div class="option" data-target="afternoon">下午</div>
+                <div class="option" data-target="night">晚上</div>
+            </div>
+            <div class="main">
+                <div class="toolbar">
+                    <input type="text" id="todo-input" placeholder="想做点什么?" />
+                    <div class="add-todo" id="add-todo">+</div>
+                </div> 
+                <div class="todolist" id="default">
+                    <!--
+                    <div class="test-todo todo" id="test-todo" style="display:none;">
+                        <div class="todo-status"></div>
+                        <div class="todo-content"></div>
+                        <div class="delete-todo">x</div>
+                    </div>
+                    -->
+                </div>
+                <div class="todolist" id="morning">
+                </div>
+                <div class="todolist" id="afternoon">
+                </div>
+                <div class="todolist" id="night">
+                </div>
+            </div>
+            <div class="footer">
+                <div class="date"></div>
+                <div class="sign">linglan(˶ㅇᗜㅇ˶) ⑉♥</div>
+                <div class="sign">Gemini(ᐢ⸝⸝› ̫ ‹⸝⸝ᐢ)</div>
+            </div>
+        </div>
+
+        <template id="todo-template">
+            <div class="todo">
+                <div class="todo-status"></div>
+                <div class="todo-content">1</div>
+                <div class="delete-todo">x</div>
+            </div>
+        </template>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', ()=>{
+                const options = document.querySelectorAll('.option');
+                const todoLists = document.querySelectorAll('.todolist');
+                const main = document.querySelector('.main');
+                const addTodo = document.getElementById('add-todo');
+                const todoInput = document.getElementById('todo-input');
+                const dateDiv = document.querySelector('.date');
+
+                function createTodoElement(text, isCompleted=false){
+                    const template = document.getElementById('todo-template');
+                    const clone = template.content.cloneNode(true);
+                    const todoDiv = clone.querySelector('.todo');
+
+                    clone.querySelector('.todo-content').textContent = text;
+                    if (isCompleted) {
+                        todoDiv.classList.add('checked');
+                    }
+                    return clone;
+                }
+                function saveToLocalStorage() {
+                    const dataToSave = {};
+                    todoLists.forEach(list=>{
+                        const listId = list.id;
+                        const todosInList = [];
+                        list.querySelectorAll('.todo').forEach(todoItem=>{
+                            const text = todoItem.querySelector('.todo-content').textContent.trim();
+                            const isChecked = todoItem.classList.contains('checked');
+                            if (text != "") {
+                                todosInList.push({
+                                    text:text,
+                                    completed:isChecked
+                                });
+                            }
+                        });
+                        dataToSave[listId] = todosInList;
+                    });
+                    localStorage.setItem('myTodoList', JSON.stringify(dataToSave));
+                }
+                const savedDataString = localStorage.getItem('myTodoList');
+                let currentData;
+                const initialData = {
+                    'default':['1','2','3'],
+                    'morning':['morning'],
+                    'afternoon':['afternoon'],
+                    'night':['night']
+                };
+                if (savedDataString) {
+                    currentData = JSON.parse(savedDataString);
+                } else {
+                    currentData = initialData;
+                }
+                for (const listId in currentData) {
+                    const listContainer = document.getElementById(listId);
+                    if (listContainer) {
+                        currentData[listId].forEach(item=>{
+                            const text = typeof item === 'string' ? item : item.text;
+                            const completed = typeof item === 'object' ? item.completed : false;
+                            listContainer.appendChild(createTodoElement(text, completed));
+                        });
+                    }
+                }
+
+                const defaultList = document.getElementById('default');
+                if (defaultList) {
+                    defaultList.classList.add('active');
+                    options[0].style.backgroundColor='rgba(8,153,153,0.2)';
+                }
+
+                options.forEach(option=>{
+                    option.addEventListener('click', function(){
+                        const targetId = this.getAttribute('data-target');
+                        todoLists.forEach(list=>{
+                            list.classList.remove('active');
+                        });
+                        const targetList = document.getElementById(targetId);
+                        if (targetList) {
+                            targetList.classList.add('active');
+                            options.forEach(option=>{
+                                option.style.backgroundColor='transparent';
+                            });
+                            this.style.backgroundColor='rgba(8,153,153,0.2)';
+                        }
+                    });
+                });
+
+                addTodo.addEventListener('click', ()=>{
+                    const text = todoInput.value.trim();
+                    if (!text) return;
+                    const activeList = document.querySelector('.todolist.active');
+                    const newTodo = createTodoElement(text);
+                    activeList.appendChild(newTodo);
+                    todoInput.value = '';
+
+                    saveToLocalStorage();
+                });
+                todoInput.addEventListener('keypress', (e)=>{
+                    if (e.key == 'Enter') {
+                        addTodo.click();
+                    }
+                });
+                main.addEventListener('click', (e)=>{
+                    if (e.target.classList.contains('todo-status')) {
+                        const todoItem = e.target.closest('.todo');
+                        if (todoItem) {
+                            todoItem.classList.toggle('checked');
+                            saveToLocalStorage();
+                        }
+                    }
+                    if (e.target.classList.contains('delete-todo')) {
+                        const todoItem = e.target.closest('.todo');
+                        if (todoItem) {
+                            todoItem.remove();
+                            saveToLocalStorage();
+                        }
+                    }
+                });
+
+                function updateClock() {
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2,'0');
+                    const minutes = String(now.getMinutes()).padStart(2,'0');
+                    const seconds = String(now.getSeconds()).padStart(2,'0');
+                    
+                    const timeString = `${hours}:${minutes}:${seconds}`;
+                    if (dateDiv) {
+                        dateDiv.textContent = timeString;
+                    }
+                }
+                updateClock();
+                setInterval(updateClock, 1000);
+
+            });
+        </script>
+    </body>
+</html>
