@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>账本 - Headless Architecture</title>
+    <style>
+        /* UI 风格：极简三色高对比度 */
+        :root {
+            --bg: #F4F1ED;
+            --fg: #2C2C2C;
+            --accent: #EBA0B5; /* 亮粉色点缀 */
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Courier New", Courier, monospace, sans-serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            display: grid;
+            grid-template-areas: 
+                "header header"
+                "sidebar main"
+                "footer footer";
+            grid-template-rows: 60px 1fr 40px;
+            grid-template-columns: 200px 1fr;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 布局区块 */
+        header {
+            grid-area: header;
+            background: var(--accent);
+            border-bottom: 3px solid var(--fg);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        aside {
+            grid-area: sidebar;
+            border-right: 3px solid var(--fg);
+            padding: 15px 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        main {
+            grid-area: main;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        footer {
+            grid-area: footer;
+            background: var(--fg);
+            color: var(--bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-weight: bold;
+        }
+
+        /* 组件样式 */
+        button {
+            border: 2px solid var(--fg);
+            background: var(--bg);
+            color: var(--fg);
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+            transition: all 0.1s;
+            box-shadow: 2px 2px 0 var(--fg);
+        }
+
+        button:hover { background: var(--accent); }
+        button:active { box-shadow: 0 0 0 var(--fg); transform: translate(2px, 2px); }
+
+        input, select {
+            border: 2px solid var(--fg);
+            background: #FFF;
+            padding: 6px;
+            font-family: inherit;
+            outline: none;
+        }
+        
+        input:focus, select:focus { border-color: var(--accent); }
+
+        /* 特定功能区样式 */
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding-bottom: 20px;
+            border-bottom: 2px dashed var(--fg);
+            align-items: center;
+        }
+
+        .sys-bar { margin-left: auto; display: flex; gap: 5px; }
+
+        .record-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .record-item {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            padding: 10px 15px;
+            border: 2px solid var(--fg);
+            background: #FFF;
+        }
+
+        .record-item.soft-deleted {
+            opacity: 0.5;
+            background: #eee;
+            text-decoration: line-through;
+        }
+
+        .amount.income { color: #2E8B57; font-weight: bold; }
+        .amount.expense { color: #DC143C; font-weight: bold; }
+
+        .date-btn { text-align: left; width: 100%; box-shadow: none; border-width: 1px; }
+        .date-btn.active { background: var(--fg); color: var(--bg); }
+    </style>
+</head>
+<body>
+
+    <header>账本</header>
+
+    <aside id="sidebar-dates">
+        </aside>
+
+    <main>
+        <div class="action-bar">
+            <input type="date" id="input-date" required>
+            <select id="input-type">
+                <option value="+">收入 (+)</option>
+                <option value="-">支出 (-)</option>
+            </select>
+            <input type="number" id="input-amount" placeholder="金额(元)" step="0.01" min="0" required style="width: 100px;">
+            <input type="text" id="input-category" placeholder="类型" style="width: 100px;">
+            <input type="text" id="input-note" placeholder="备注">
+            <button id="btn-add">添加记录</button>
+            
+            <div style="width: 2px; height: 30px; background: var(--fg); margin: 0 10px;"></div>
+            
+            <button id="btn-delete-selected">软删除选中</button>
+            <button id="btn-hard-delete-selected">彻底删除选中</button>
+
+            <div class="sys-bar">
+                <button id="btn-export">导出数据</button>
+                <button id="btn-import">导入数据</button>
+            </div>
+        </div>
+
+        <div class="record-list" id="main-records">
+            </div>
+    </main>
+
+    <footer>
+        <span id="signature">Logical flow, observed and executed. —— Gemini</span>
+        <span id="clock">00:00:00</span>
+    </footer>
+
+    <script>
+        // ==========================================
+        // 第一部分：无头组件层 (纯数据结构与交互逻辑)
+        // ==========================================
+        function createLedgerLogic() {
+            const RECORD_KEY = 'ledger_records';
+            const LOG_KEY = 'ledger_logs';
+
+            let records = JSON.parse(localStorage.getItem(RECORD_KEY)) || [];
+            let logs = JSON.parse(localStorage.getItem(LOG_KEY)) || [];
+            let listeners = [];
+
+            // 内部存储持久化机制
+            const save = () => {
+                localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+                localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+                listeners.forEach(fn => fn(records)); // 通知表现层更新
+            };
+
+            const generateId = (arr) => arr.length > 0 ? Math.max(...arr.map(item => item.id)) + 1 : 1;
+
+            // 操作日志记录器
+            const logOperation = (type, content, note = '') => {
+                logs.push({
+                    id: generateId(logs),
+                    operator: 'LocalUser',
+                    operationTime: new Date().toISOString(),
+                    operationType: type,
+                    operationContent: content,
+                    note: note
+                });
+            };
+
+            return {
+                subscribe: (listener) => {
+                    listeners.push(listener);
+                    listener(records);
+                },
+                // 业务接口：增加记录
+                addRecord: ({ date, type, amountYuan, category, note }) => {
+                    if (!date || !amountYuan) return;
+                    const amountCents = Math.round(parseFloat(amountYuan) * 100);
+                    const newRecord = { id: generateId(records), date, type, amount: amountCents, category, note, isDeleted: false };
+                    records.push(newRecord);
+                    logOperation('CREATE', JSON.stringify(newRecord), 'Added via UI');
+                    save();
+                },
+                // 业务接口：修改记录
+                updateRecord: (id, updates) => {
+                    const idx = records.findIndex(r => r.id === id);
+                    if (idx > -1) {
+                        records[idx] = { ...records[idx], ...updates };
+                        logOperation('UPDATE', `ID:${id}`, JSON.stringify(updates));
+                        save();
+                    }
+                },
+                // 业务接口：软删除
+                softDeleteRecord: (idsArray) => {
+                    records.forEach(r => {
+                        if (idsArray.includes(r.id)) {
+                            r.isDeleted = true;
+                            logOperation('SOFT_DELETE', `ID:${r.id}`);
+                        }
+                    });
+                    save();
+                },
+                // 业务接口：彻底删除
+                deleteRecord: (idsArray) => {
+                    records = records.filter(r => !idsArray.includes(r.id));
+                    logOperation('HARD_DELETE', `IDs:${idsArray.join(',')}`);
+                    save();
+                },
+                // 业务接口：导入导出
+                exportData: () => {
+                    logOperation('EXPORT', 'Data exported');
+                    save();
+                    return JSON.stringify({ records, logs });
+                },
+                importData: (jsonStr) => {
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        if (data.records && data.logs) {
+                            records = data.records;
+                            logs = data.logs;
+                            logOperation('IMPORT', 'Data imported');
+                            save();
+                            alert('导入成功');
+                        }
+                    } catch (e) {
+                        alert('导入失败: JSON 格式错误');
+                    }
+                }
+            };
+        }
+
+        // ==========================================
+        // 第二部分：表现层 (DOM 绑定与 UI 渲染)
+        // ==========================================
+        
+        // 1. 实例化逻辑底座
+        const ledger = createLedgerLogic();
+        
+        // 2. 维护 UI 自身的视图状态（不影响底层数据）
+        let activeDateFilter = 'ALL'; 
+        let selectedRecordIds = new Set();
+
+        // 3. 提取 DOM 元素
+        const sidebarEl = document.getElementById('sidebar-dates');
+        const mainRecordsEl = document.getElementById('main-records');
+        const clockEl = document.getElementById('clock');
+        
+        // --- 底部时钟逻辑 (东八区精确到秒) ---
+        setInterval(() => {
+            const now = new Date();
+            clockEl.textContent = now.toLocaleTimeString('en-GB', { 
+                timeZone: 'Asia/Shanghai', 
+                hour12: false 
+            });
+        }, 1000);
+
+        // --- 核心渲染逻辑 ---
+        ledger.subscribe((currentRecords) => {
+            // A. 渲染侧边栏日期列表
+            const uniqueDates = [...new Set(currentRecords.map(r => r.date))].sort().reverse();
+            sidebarEl.innerHTML = '';
+            
+            // "全部日期" 按钮
+            const allBtn = document.createElement('button');
+            allBtn.className = `date-btn ${activeDateFilter === 'ALL' ? 'active' : ''}`;
+            allBtn.textContent = '全部日期';
+            allBtn.onclick = () => { activeDateFilter = 'ALL'; ledger.subscribe(fn => fn); }; // 触发重绘
+            sidebarEl.appendChild(allBtn);
+
+            uniqueDates.forEach(date => {
+                const btn = document.createElement('button');
+                btn.className = `date-btn ${activeDateFilter === date ? 'active' : ''}`;
+                btn.textContent = date;
+                btn.onclick = () => { activeDateFilter = date; ledger.subscribe(fn => fn); };
+                sidebarEl.appendChild(btn);
+            });
+
+            // B. 渲染主记录列表
+            mainRecordsEl.innerHTML = '';
+            
+            // 数据过滤：按日期过滤
+            const displayRecords = activeDateFilter === 'ALL' 
+                ? currentRecords 
+                : currentRecords.filter(r => r.date === activeDateFilter);
+
+            displayRecords.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(record => {
+                const div = document.createElement('div');
+                div.className = `record-item ${record.isDeleted ? 'soft-deleted' : ''}`;
+                
+                // 复选框状态控制
+                const isChecked = selectedRecordIds.has(record.id);
+
+                div.innerHTML = `
+                    <input type="checkbox" class="record-check" data-id="${record.id}" ${isChecked ? 'checked' : ''}>
+                    <span style="font-weight:bold;">${record.date}</span>
+                    <span class="amount ${record.type === '+' ? 'income' : 'expense'}">
+                        ${record.type} ${(record.amount / 100).toFixed(2)} 元
+                    </span>
+                    <span style="background: var(--fg); color: var(--bg); padding: 2px 6px; font-size:12px;">${record.category || '未分类'}</span>
+                    <span style="flex-grow: 1; text-align: right; color: #666;">${record.note}</span>
+                `;
+
+                // 绑定复选框事件
+                const checkbox = div.querySelector('.record-check');
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) selectedRecordIds.add(record.id);
+                    else selectedRecordIds.delete(record.id);
+                });
+
+                mainRecordsEl.appendChild(div);
+            });
+        });
+
+        // --- 顶部操作栏事件绑定 ---
+        
+        // 默认填充今天的日期
+        document.getElementById('input-date').value = new Date().toISOString().split('T')[0];
+
+        // 添加操作
+        document.getElementById('btn-add').addEventListener('click', () => {
+            ledger.addRecord({
+                date: document.getElementById('input-date').value,
+                type: document.getElementById('input-type').value,
+                amountYuan: document.getElementById('input-amount').value,
+                category: document.getElementById('input-category').value,
+                note: document.getElementById('input-note').value
+            });
+            document.getElementById('input-amount').value = '';
+            document.getElementById('input-note').value = '';
+        });
+
+        // 软删除
+        document.getElementById('btn-delete-selected').addEventListener('click', () => {
+            if (selectedRecordIds.size === 0) return;
+            ledger.softDeleteRecord(Array.from(selectedRecordIds));
+            selectedRecordIds.clear();
+        });
+
+        // 彻底删除
+        document.getElementById('btn-hard-delete-selected').addEventListener('click', () => {
+            if (selectedRecordIds.size === 0) return;
+            if(confirm('确定要彻底删除选中的记录吗？无法恢复。')) {
+                ledger.deleteRecord(Array.from(selectedRecordIds));
+                selectedRecordIds.clear();
+            }
+        });
+
+        // 导出导入
+        document.getElementById('btn-export').addEventListener('click', () => {
+            const dataStr = ledger.exportData();
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ledger_export_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('btn-import').addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = ev => ledger.importData(ev.target.result);
+                reader.readAsText(file);
+            };
+            input.click();
+        });
+
+    </script>
+</body>
+</html>
